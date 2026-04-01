@@ -1,9 +1,31 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-#MaxThreadsPerHotkey 2
+#MaxThreadsPerHotkey 10
 SetWorkingDir A_ScriptDir
 
+; Ahk2Exe-Include=ImagePut.ahk
 #Include ImagePut.ahk
+
+; ============================== 资源打包与路径映射 ==============================
+; 定义临时资源目录 (使用 A_Temp 避免权限问题，程序退出后可选清理)
+global ResourceTempDir := A_Temp . "\KadaoMacro_Res"
+
+; 确保临时目录存在
+if !DirExist(ResourceTempDir)
+    DirCreate(ResourceTempDir)
+
+; --- FileInstall 列表开始 ---
+; 语法: FileInstall(源文件相对路径, 目标绝对路径, 覆盖标志)
+; 请确保编译前 pic 文件夹下有这些文件，文件名必须完全一致！
+FileInstall("pic\juesexuetiao.bmp", ResourceTempDir . "\juesexuetiao.bmp", 1)
+FileInstall("pic\zhaohuan-qianniuhua.bmp", ResourceTempDir . "\zhaohuan-qianniuhua.bmp", 1)
+FileInstall("pic\zhaohuan-jineng1-yemanshengzhang.bmp", ResourceTempDir . "\zhaohuan-jineng1-yemanshengzhang.bmp", 1)
+FileInstall("pic\zhaohuan-jineng1-mangcizaibei.bmp", ResourceTempDir . "\zhaohuan-jineng1-mangcizaibei.bmp", 1)
+FileInstall("pic\zhaohuan-jineng2-shequ.bmp", ResourceTempDir . "\zhaohuan-jineng2-shequ.bmp", 1)
+FileInstall("pic\zhaohuan-jineng2-jingjiteng.bmp", ResourceTempDir . "\zhaohuan-jineng2-jingjiteng.bmp", 1)
+FileInstall("pic\zhaohuan-yamao.bmp", ResourceTempDir . "\zhaohuan-yamao.bmp", 1)
+FileInstall("pic\zhaohuan-naonao.bmp", ResourceTempDir . "\zhaohuan-naonao.bmp", 1)
+; --- FileInstall 列表结束 ---
 
 ; ============================== 提权 使用管理员权限启动 ==============================
 if !A_IsAdmin
@@ -205,14 +227,14 @@ startBotton = XButton1
 ;召唤RT循环延迟（毫秒）
 mainLoopDelay = 10
 ;全局按键延迟（毫秒）
-pressDelay = 50
+pressDelay = 5
 
 [SkillEnable]
 ; 技能释放开关，默认开启（1）, 关闭（0）
 Qianniuhua =1
 Yamao =1
-Jineng1 =1
-Jineng2 =1
+Jineng1 =0
+Jineng2 =0
 
 ; 技能取色配置 - 默认坐标在2K分辨率下
 ; 牵牛花（F键）配置
@@ -401,7 +423,7 @@ InitConfig() {
 
 ; ============================== 主循环函数 ==============================
 StartSkillLoop(ThisHotkey) {
-    global isMainLoopPaused, startMainLoopButton
+    global isMainLoopPaused, startMainLoopButton    
 
     ; 如果主循环已暂停，直接返回
     if isMainLoopPaused {
@@ -426,8 +448,10 @@ StartSkillLoop(ThisHotkey) {
 ^r::
 {
     global startMainLoopButton, skillConfig, skillEnable
+
+    oldHotkey := startMainLoopButton
     InitConfig()
-    Hotkey startMainLoopButton, StartSkillLoop
+    SwitchHotkey(startMainLoopButton, oldHotkey)
 
     configInfo := "===== 技能配置文件读取结果 =====`n`n"
     configInfo .= "【全局配置】`n"
@@ -441,6 +465,7 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "技能2(Jineng2)：" skillEnable.Jineng2 "`n`n"
 
     configInfo .= "【牵牛花(Qianniuhua)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.Qianniuhua.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.Qianniuhua.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.Qianniuhua.TargetColor1 "`n"
@@ -448,10 +473,12 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.Qianniuhua.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.Qianniuhua.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.Qianniuhua.colorRange "`n"
+    */
     configInfo .= "按键按住时长(pressHold)：" skillConfig.Qianniuhua.pressHold " 毫秒`n"
     configInfo .= "检测定时器间隔(checkTimer)：" skillConfig.Qianniuhua.checkTimer " 毫秒`n`n"
 
     configInfo .= "【压猫(Yamao)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.Yamao.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.Yamao.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.Yamao.TargetColor1 "`n"
@@ -459,10 +486,12 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.Yamao.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.Yamao.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.Yamao.colorRange "`n"
+    */
     configInfo .= "按键按住时长(pressHold)：" skillConfig.Yamao.pressHold " 毫秒`n"
     configInfo .= "检测定时器间隔(checkTimer)：" skillConfig.Yamao.checkTimer " 毫秒`n`n"
 
     configInfo .= "【挠挠(naonao)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.naonao.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.naonao.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.naonao.TargetColor1 "`n"
@@ -470,9 +499,11 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.naonao.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.naonao.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.naonao.colorRange "`n"
+    */
     configInfo .= "执行挠挠后CD(xcxDelay)：" skillConfig.naonao.xcxDelay " 毫秒`n`n"
 
     configInfo .= "【喵火流星(miaohuoliuxing)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.miaohuoliuxing.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.miaohuoliuxing.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.miaohuoliuxing.TargetColor1 "`n"
@@ -480,9 +511,11 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.miaohuoliuxing.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.miaohuoliuxing.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.miaohuoliuxing.colorRange "`n"
+    */
     configInfo .= "执行喵火流星C后CD(xcxDelay)：" skillConfig.miaohuoliuxing.xcxDelay " 毫秒`n`n"
 
     configInfo .= "【技能1(Jineng1)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.jineng1.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.jineng1.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.jineng1.TargetColor1 "`n"
@@ -490,10 +523,12 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.jineng1.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.jineng1.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.jineng1.colorRange "`n"
+    */
     configInfo .= "按键按住时长(pressHold)：" skillConfig.jineng1.pressHold " 毫秒`n"
     configInfo .= "检测定时器间隔(checkTimer)：" skillConfig.jineng1.checkTimer " 毫秒`n`n"
 
     configInfo .= "【技能2(Jineng2)配置】`n"
+    /* 
     configInfo .= "检测坐标1 X(TargetX1)：" skillConfig.jineng2.TargetX1 "`n"
     configInfo .= "检测坐标1 Y(TargetY1)：" skillConfig.jineng2.TargetY1 "`n"
     configInfo .= "目标颜色1(TargetColor1)：" skillConfig.jineng2.TargetColor1 "`n"
@@ -501,6 +536,7 @@ StartSkillLoop(ThisHotkey) {
     configInfo .= "检测坐标2 Y(TargetY2)：" skillConfig.jineng2.TargetY2 "`n"
     configInfo .= "目标颜色2(TargetColor2)：" skillConfig.jineng2.TargetColor2 "`n"
     configInfo .= "目标颜色容差值(colorRange)：" skillConfig.jineng2.colorRange "`n"
+    */
     configInfo .= "按键按住时长(pressHold)：" skillConfig.jineng2.pressHold " 毫秒`n"
     configInfo .= "检测定时器间隔(checkTimer)：" skillConfig.jineng2.checkTimer " 毫秒`n`n"
 
@@ -517,7 +553,8 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 角色血条位置取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\juesexuetiao.bmp")
+    ; [修改点] 路径改为 ResourceTempDir
+    search := ImagePutBuffer(ResourceTempDir . "\juesexuetiao.bmp")
     searchWidth := search.Width
     searchHeight := search.Height
     if xy := pic.ImageSearch(search) {
@@ -539,7 +576,7 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 牵牛花取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\zhaohuan-qianniuhua.bmp")
+    search := ImagePutBuffer(ResourceTempDir . "\zhaohuan-qianniuhua.bmp")
     searchWidth := search.Width
     searchHeight := search.Height
     if xy := pic.ImageSearch(search) {
@@ -576,10 +613,12 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 技能1取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\zhaohuan-jineng1.bmp")
-    searchWidth := search.Width
-    searchHeight := search.Height
-    if xy := pic.ImageSearch(search) {
+    search1 := ImagePutBuffer(ResourceTempDir . "\zhaohuan-jineng1-yemanshengzhang.bmp")
+    search2 := ImagePutBuffer(ResourceTempDir . "\zhaohuan-jineng1-mangcizaibei.bmp")
+    if xy := pic.ImageSearch(search1) || xy := pic.ImageSearch(search2) {
+        ; 判断1系疯狂生长或2系芒刺在背
+        searchWidth := search.Width
+        searchHeight := search.Height
         FoundX := xy[1]
         FoundY := xy[2]
         Q1CenterX := Round(FoundX + searchWidth / 4)
@@ -613,10 +652,12 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 技能2取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\zhaohuan-jineng2.bmp")
-    searchWidth := search.Width
-    searchHeight := search.Height
-    if xy := pic.ImageSearch(search) {
+    search1 := ImagePutBuffer(ResourceTempDir . "\zhaohuan-jineng2-shequ.bmp")
+    search2 := ImagePutBuffer(ResourceTempDir . "\zhaohuan-jineng2-jingjiteng.bmp")
+    if xy := pic.ImageSearch(search1) || xy := pic.ImageSearch(search2) {
+        searchWidth := search.Width
+        searchHeight := search.Height
+        ; 判断1系摄取或2系荆棘藤
         FoundX := xy[1]
         FoundY := xy[2]
         Q1CenterX := Round(FoundX + searchWidth / 4)
@@ -636,7 +677,7 @@ StartSkillLoop(ThisHotkey) {
         IniWrite(skillConfig.jineng2.TargetY2, configPath, "jineng2", "TargetY2")
         IniWrite(Format("{:06X}", skillConfig.jineng2.TargetColor2), configPath, "jineng2", "TargetColor2")
     } else {
-        MsgBox "获取不到 2键 荆棘藤 技能目标位置，将使用配置文件默认坐标值"
+        MsgBox "获取不到 2键 技能目标位置，将使用配置文件默认坐标值"
         sleepa 500
         Q1CenterX := skillConfig.jineng2.TargetX1
         Q1CenterY := skillConfig.jineng2.TargetY1
@@ -658,7 +699,7 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 压猫取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\zhaohuan-yamao.bmp")
+    search := ImagePutBuffer(ResourceTempDir . "\zhaohuan-yamao.bmp")
     searchWidth := search.Width
     searchHeight := search.Height
     if xy := pic.ImageSearch(search) {
@@ -697,7 +738,7 @@ StartSkillLoop(ThisHotkey) {
 
     ; ========== 挠挠取色 ==========
     pic := ImagePutBuffer(0)
-    search := ImagePutBuffer(A_ScriptDir "\pic\zhaohuan-naonao.bmp")
+    search := ImagePutBuffer(ResourceTempDir . "\zhaohuan-naonao.bmp")
     searchWidth := search.Width
     searchHeight := search.Height
     if xy := pic.ImageSearch(search) {
@@ -744,10 +785,11 @@ global myGui := ""
 
 CreateGui() {
     global myGui, skillEnable, startMainLoopButton, skillConfig, configPath
-    myGui := Gui("+MinSize -MaximizeBox", "召唤-功血 v0.9")
+    myGui := Gui("+MinSize -MaximizeBox", "召唤-卡刀 v0.9.1")
     myGui.SetFont("s9", "Microsoft YaHei")
 
     ; 启动热键（组合框）
+    myGui.AddText("xm y+10", "流派: 马蜂-功血")
     myGui.AddText("xm y+10", "启动摁键 (长摁启动卡刀):")
     hotkeyList := ["XButton1", "XButton2", "XButton3", "F1", "F2", "F3", "F4", "F5", "F6"]
     cboHotkey := myGui.AddComboBox("vSelectedHotkey w120", hotkeyList)
@@ -761,11 +803,11 @@ CreateGui() {
     myGui.AddText("xm y+15", "技能开关:")
     cbQianniuhua := myGui.AddCheckbox("vCbQianniuhua", "牵牛花 (F)")
     cbQianniuhua.Value := skillEnable.Qianniuhua
-    cbYamao := myGui.AddCheckbox("vCbYamao", "压猫 (Tab)")
+    cbYamao := myGui.AddCheckbox("vCbYamao", "自动压猫 (Tab)")
     cbYamao.Value := skillEnable.Yamao
-    cbJineng1 := myGui.AddCheckbox("vCbJineng1", "技能1")
+    cbJineng1 := myGui.AddCheckbox("vCbJineng1", "生长/芒刺 (1)")
     cbJineng1.Value := skillEnable.Jineng1
-    cbJineng2 := myGui.AddCheckbox("vCbJineng2", "技能2")
+    cbJineng2 := myGui.AddCheckbox("vCbJineng2", "摄取/荆棘藤 (2)")
     cbJineng2.Value := skillEnable.Jineng2
 
     ; 保存按钮
@@ -773,14 +815,15 @@ CreateGui() {
     btnSave.OnEvent("Click", SaveSettings)
 
     ; 说明
-    myGui.AddText("xm y+10", "说明：")
-    myGui.AddText("xm", "1. 面对木桩摁下Ctrl+P进行取色")
-    myGui.AddText("xm", "2. 压猫技能亮后Ctrl+Shift+P进行取色")
-    myGui.AddText("xm y+10", "注意：")
-    myGui.AddText("xm", "1. 默认屏幕分辨率为2560x1440")
-    myGui.AddText("xm", "2. 配置变动后需要点击 <保存设置>")
-    myGui.AddText("xm", "3. 参数配置文件修改后Ctrl+R重新加载")
-    myGui.AddText("xm", "4. 关闭本窗口后程序仍会在右下角继续运行")
+    gb2 := myGui.AddGroupBox("xm y+15 w240 h160", "说明")
+    ; 基于GroupBox的X/Y偏移10像素（xp+10, yp+10），确保在GroupBox内部
+    myGui.AddText("xs+6 yp+20", "1. 面对木桩摁下Ctrl+P进行取色")
+    myGui.AddText("xs+6 yp+20", "2. 压猫技能亮后Ctrl+Shift+P进行取色")
+    myGui.AddText("xs+6 yp+20", "注意：")
+    myGui.AddText("xs+6 yp+20", "1. 默认屏幕分辨率为2560x1440")
+    myGui.AddText("xs+6 yp+20", "2. 配置变动后需要点击 <保存设置>")
+    myGui.AddText("xs+6 yp+20", "3. 参数配置文件修改后Ctrl+R重新加载")
+    myGui.AddText("xs+6 yp+20", "4. 关闭本窗口后程序仍会在右下角继续运行")
 
     ; 窗口事件：关闭/ESC 时隐藏，最小化时也隐藏
     myGui.OnEvent("Close", GuiClose)
@@ -791,7 +834,31 @@ CreateGui() {
     CreateTrayMenu()
 
     ; 显示窗口，设置初始宽度为 250，禁止最大化
-    myGui.Show("w250")
+    myGui.Show("w260")
+}
+
+; 更新热键
+SwitchHotkey(newHotkey, oldHotkey) {
+    ; 如果新旧热键相同，不需要重新绑定
+    if (newHotkey = oldHotkey) {
+        return
+    }
+
+    ; 1. 处理旧热键：先关闭，再删除定义
+    if (oldHotkey != "") {
+        
+        Hotkey oldHotkey, "Off"      ; 先禁用
+        Sleep 50                     ; 短暂等待，确保系统处理完禁用指令
+
+    }
+
+    ; 2. 绑定新热键
+    try {
+        ; 强制重新绑定新热键
+        Hotkey newHotkey, StartSkillLoop, "On"
+    } catch as e {
+        MsgBox "绑定热键 " newHotkey " 失败:`n"
+    }
 }
 
 SaveSettings(*)
@@ -813,12 +880,11 @@ SaveSettings(*)
     IniWrite(new1 ? "1" : "0", configPath, "SkillEnable", "Jineng1")
     IniWrite(new2 ? "1" : "0", configPath, "SkillEnable", "Jineng2")
 
-    ; 重新加载配置（更新 skillEnable 和 startMainLoopButton）
+    ; 重新加载配置
     oldHotkey := startMainLoopButton
     InitConfig()
-    try Hotkey(oldHotkey, "Off")
-    Hotkey(startMainLoopButton, StartSkillLoop)
-
+    SwitchHotkey(startMainLoopButton, oldHotkey)
+    
     ; 更新控件显示
     myGui["SelectedHotkey"].Text := startMainLoopButton
     myGui["MainLoopDelay"].Text := skillConfig.mainLoopDelay
@@ -839,11 +905,11 @@ ToggleMacro(*)
     ; 重建托盘菜单以更新文字
     CreateTrayMenu()
     if !isMainLoopPaused {
-        TrayTip "卡刀宏已恢复运行", "召唤-功血", "Iconi Mute"
-        sleepa(3000)
+        TrayTip "卡刀宏已恢复运行", "卡刀宏", "Iconi Mute"
+        sleepa 2000
     } else {
-        TrayTip "卡刀宏已停止运行", "召唤-功血", "Iconi Mute"
-        sleepa(3000)
+        TrayTip "卡刀宏已停止运行", "卡刀宏", "Iconi Mute"
+        sleepa 2000
     }
     TrayTip
 }
@@ -870,6 +936,13 @@ TrayShow(*)
 
 TrayExit(*)
 {
+    global ResourceTempDir
+    ; 尝试删除临时资源目录及其内容
+    try {
+        if DirExist(ResourceTempDir) {
+            DirDelete(ResourceTempDir, true) ; true 表示递归删除
+        }
+    }
     ExitApp
 }
 
