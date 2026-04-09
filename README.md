@@ -1,6 +1,9 @@
 # 卡刀鸡 - 剑灵怀旧服卡刀宏
 
 自制剑灵怀旧服卡刀循环工具，支持动态切换流派、独立配置保存。
+<img width="318" height="681" alt="image" src="https://github.com/user-attachments/assets/55bbbca3-8980-48a0-aa81-a1fe418d3069" />
+<img width="319" height="582" alt="image" src="https://github.com/user-attachments/assets/735750fb-4f22-410e-b7d5-4a8dd9bc2daf" />
+
 
 
 ## 功能特点
@@ -113,6 +116,7 @@ AHKtemp/
 1. 打开 Ahk2Exe
 2. 选择 `Main.ahk` 作为源文件
 3. 点击编译
+<img width="956" height="609" alt="image" src="https://github.com/user-attachments/assets/e7c35f47-1255-4df4-b26b-826a598c6ead" />
 
 ## 技术栈
 
