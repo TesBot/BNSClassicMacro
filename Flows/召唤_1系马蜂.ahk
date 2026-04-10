@@ -16,7 +16,7 @@ global isYamaoPressed_Zhaohuan1 := false
 
 ; ============================== 流派配置初始化 ==============================
 InitFlowConfig_Zhaohuan1() {
-    global skillConfig, skillEnable, startMainLoopButton
+    global skillConfig, skillEnable, startMainLoopButton, triggerMode
     local configPath := GetFlowConfigPath("召唤_1系马蜂")
 
     if !FileExist(configPath) {
@@ -27,6 +27,7 @@ InitFlowConfig_Zhaohuan1() {
     skillConfig.pressDelay := ReadConfigInt(configPath, "Global", "pressDelay", 5)
     skillConfig.mainLoopDelay := ReadConfigInt(configPath, "Global", "mainLoopDelay", 5)
     skillConfig.startButton := ReadConfigStr(configPath, "Global", "startButton", "XButton1")
+    triggerMode := ReadConfigInt(configPath, "Global", "triggerMode", 0)
 
     ; 加载技能开关
     skillEnable.Qianniuhua := ReadConfigInt(configPath, "SkillEnable", "Qianniuhua", 1)
@@ -133,6 +134,8 @@ startButton = XButton1
 mainLoopDelay = 5
 ; 全局按键延迟（毫秒）
 pressDelay = 5
+; 触发模式：0=长按模式（按住运行松开停止），1=开关模式（按一次启动再按停止）
+triggerMode = 0
 
 [SkillEnable]
 ; 技能释放开关，默认开启（1），关闭（0）
@@ -249,6 +252,16 @@ checkJineng2_Zhaohuan1() {
 }
 
 ; ============================== 技能释放函数 ==============================
+; 检查循环是否应该继续（根据触发模式）
+ShouldContinueLoop_Zhaohuan1(ThisHotkey) {
+    global triggerMode, isToggleLoopActive
+    if (triggerMode = 0) {
+        return GetKeyState(ThisHotkey, "P")
+    } else {
+        return isToggleLoopActive
+    }
+}
+
 releaseQianniuhua_Zhaohuan1() {
     global isMacroRunning, skillConfig, bloodbarConfig
     if !isMacroRunning
@@ -323,12 +336,99 @@ releaseXCX_Zhaohuan1() {
 }
 
 ; ============================== 卡刀主循环 ==============================
+; =============================================================================
+; 触发模式状态机说明
+; =============================================================================
+;
+; 【全局变量】
+;   triggerMode        - 触发模式：0=长按模式，1=开关模式
+;   isToggleLoopActive - 开关模式下的循环激活状态（true=运行中，false=已停止）
+;   isMacroRunning     - 宏运行状态，用于技能释放函数内部检测
+;   toggleLock         - 互斥锁，防止多线程同时修改状态
+;
+; 【长按模式 (triggerMode = 0)】
+;   用户按住按键 → 循环运行
+;   用户松开按键 → 循环停止
+;   实现方式：循环内检测 GetKeyState(ThisHotkey, "P")
+;
+; 【开关模式 (triggerMode = 1) 状态机】
+;
+;   状态图：
+;   ┌─────────────────────────────────────────────────────────────────┐
+;   │                                                                 │
+;   │    [已停止状态]                    [运行中状态]                  │
+;   │    isToggleLoopActive = false     isToggleLoopActive = true    │
+;   │    isMacroRunning = false         isMacroRunning = true        │
+;   │                                                                 │
+;   │         │  获取锁+设置true           │  设置false（不获取锁）   │
+;   │         │  KeyWait(持锁)             │  return                  │
+;   │         ▼                             ▼                        │
+;   │    ┌─────────┐    启动循环    ┌─────────────┐                  │
+;   │    │ 已停止  │ ────────────▶ │   运行中    │                  │
+;   │    └─────────┘               └─────────────┘                  │
+;   │         ▲                             │                        │
+;   │         │       检测到false           │                        │
+;   │         │<────────────────────────────┘                        │
+;   │         │       循环退出                                       │
+;   │                                                                 │
+;   └─────────────────────────────────────────────────────────────────┘
+;
+; 【启动流程】
+;   1. 检测 isToggleLoopActive = false（已停止状态）
+;   2. 获取锁 toggleLock = true
+;   3. 设置 isToggleLoopActive = true
+;   4. KeyWait 等待用户松开按键（期间保持锁）
+;   5. 释放锁 toggleLock = false
+;   6. 再次确认状态，进入循环
+;
+; 【停止流程】
+;   1. 检测 isToggleLoopActive = true（运行中状态）
+;   2. 设置 isToggleLoopActive = false
+;   3. 设置 isMacroRunning = false
+;   4. return
+;   5. 循环检测到 false，退出
+;
+; 【互斥锁作用】
+;   - 启动时 KeyWait 期间保持锁，防止其他线程干扰
+;   - 线程2检测到锁被占用时直接返回，不重复进入
+;   - 停止时不获取锁，确保循环能立即响应
+;
+; =============================================================================
 StartSkillLoop_Zhaohuan1(ThisHotkey) {
-    global isMainLoopPaused, skillConfig, isMacroRunning, bloodbarConfig
+    global isMainLoopPaused, skillConfig, isMacroRunning, bloodbarConfig, triggerMode, isToggleLoopActive, toggleLock
 
     if isMainLoopPaused {
         isMacroRunning := false
         return
+    }
+
+    ; ===== 开关模式：使用互斥锁处理启动/停止 =====
+    if (triggerMode = 1) {
+        ; 停止请求：不获取锁，直接设置状态（让循环立即检测到）
+        if isToggleLoopActive {
+            isToggleLoopActive := false
+            isMacroRunning := false
+            return
+        }
+
+        ; 启动请求：获取锁，防止 KeyWait 期间被其他线程干扰
+        if toggleLock {
+            return  ; 锁被占用，直接返回
+        }
+        toggleLock := true
+
+        ; 设置状态为运行中
+        isToggleLoopActive := true
+        ; KeyWait 期间保持锁，防止其他线程修改状态
+        KeyWait(ThisHotkey)
+
+        ; 释放锁
+        toggleLock := false
+
+        ; 再次确认状态（防止被停止请求修改）
+        if not isToggleLoopActive {
+            return  ; 已被请求停止，不进入循环
+        }
     }
 
     isMacroRunning := true
@@ -345,8 +445,16 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
     local delayRemaining := 0
 
     Loop {
-        if not GetKeyState(ThisHotkey, "P")
-            break
+        ; 根据模式检测不同的停止条件
+        if (triggerMode = 0) {
+            ; 长按模式：检测按键是否松开
+            if not GetKeyState(ThisHotkey, "P")
+                break
+        } else {
+            ; 开关模式：检测是否被请求停止
+            if not isToggleLoopActive
+                break
+        }
 
         currentTime := A_TickCount
 
@@ -358,7 +466,7 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
             }
         }
 
-        if not GetKeyState(ThisHotkey, "P")
+        if not ShouldContinueLoop_Zhaohuan1(ThisHotkey)
             break
 
         ; 压猫检测
@@ -375,7 +483,7 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
             }
         }
 
-        if not GetKeyState(ThisHotkey, "P")
+        if not ShouldContinueLoop_Zhaohuan1(ThisHotkey)
             break
 
         ; 技能1检测
@@ -386,7 +494,7 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
             }
         }
 
-        if not GetKeyState(ThisHotkey, "P")
+        if not ShouldContinueLoop_Zhaohuan1(ThisHotkey)
             break
 
         ; 技能2检测
@@ -397,14 +505,14 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
             }
         }
 
-        if not GetKeyState(ThisHotkey, "P")
+        if not ShouldContinueLoop_Zhaohuan1(ThisHotkey)
             break
 
         ToolTip "宏运行中", bloodbarConfig.TargetX, bloodbarConfig.TargetY - 30
         SendEvent("{r}")
         DllCall("Sleep", "UInt", skillConfig.pressDelay)
 
-        if not GetKeyState(ThisHotkey, "P")
+        if not ShouldContinueLoop_Zhaohuan1(ThisHotkey)
             break
 
         SendEvent("{t}")
@@ -412,7 +520,7 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
 
         ; 循环延时
         delayRemaining := skillConfig.mainLoopDelay
-        while (delayRemaining > 0 && GetKeyState(ThisHotkey, "P")) {
+        while (delayRemaining > 0 && ShouldContinueLoop_Zhaohuan1(ThisHotkey)) {
             DllCall("Sleep", "UInt", 1)
             delayRemaining -= 1
         }
@@ -421,6 +529,10 @@ StartSkillLoop_Zhaohuan1(ThisHotkey) {
     ; 清除 ToolTip
     ToolTip
     isMacroRunning := false
+    ; 循环结束后重置状态（开关模式下由热键回调控制状态，这里只重置长按模式）
+    if (triggerMode = 0) {
+        isToggleLoopActive := false
+    }
 }
 
 ; ============================== 取色函数 ==============================
@@ -603,9 +715,22 @@ PickColorsYamao_Zhaohuan1() {
     MsgBox("召唤-1系压猫取色完成！", "卡刀鸡")
 }
 
+; ============================== 触发模式设置函数 ==============================
+SetTriggerMode_Zhaohuan1(mode) {
+    global triggerMode, isToggleLoopActive
+    triggerMode := mode
+    ; 如果切换到长按模式且当前循环正在运行，立即停止
+    if (mode = 0 && isToggleLoopActive) {
+        isToggleLoopActive := false
+    }
+    ; 写入配置文件（直接使用流派ID，不依赖currentFlowId）
+    local configPath := GetFlowConfigPath("召唤_1系马蜂")
+    WriteConfig(configPath, "Global", "triggerMode", mode)
+}
+
 ; ============================== UI创建函数 ==============================
 GetFlowUI_Zhaohuan1(guiObj) {
-    global skillEnable, skillConfig, startMainLoopButton
+    global skillEnable, skillConfig, startMainLoopButton, triggerMode
 
     ; 流派标题
     guiObj.AddText("xm y+10", "流派: 召唤 - 1系马蜂")
@@ -615,6 +740,12 @@ GetFlowUI_Zhaohuan1(guiObj) {
     local hotkeyList := ["XButton1", "XButton2", "XButton3", "F1", "F2", "F3", "F4", "F5", "F6"]
     local cboHotkey := guiObj.AddComboBox("x+5 yp w80 vSelectedHotkey_Zhaohuan1", hotkeyList)
     cboHotkey.Text := startMainLoopButton
+
+    ; 触发模式选择（紧接启动按键下方）
+    local rbHold := guiObj.AddRadio("xm y+3 vTriggerModeHold_Zhaohuan1 checked" . (triggerMode = 0 ? 1 : 0), "长按模式")
+    local rbToggle := guiObj.AddRadio("x+10 yp vTriggerModeToggle_Zhaohuan1 checked" . (triggerMode = 1 ? 1 : 0), "开关模式")
+    rbHold.OnEvent("Click", (*) => SetTriggerMode_Zhaohuan1(0))
+    rbToggle.OnEvent("Click", (*) => SetTriggerMode_Zhaohuan1(1))
 
     ; 循环延迟
     guiObj.AddText("xm y+5", "循环延迟(ms):")
