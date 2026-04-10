@@ -14,6 +14,9 @@ global skillConfig := {}          ; 当前流派技能配置
 global skillEnable := {}          ; 当前流派技能开关
 global bloodbarConfig := {}       ; 当前职业血条配置（共享）
 global currentJob := ""           ; 当前职业名称
+global triggerMode := 0           ; 触发模式：0=长按模式，1=开关模式
+global isToggleLoopActive := false ; 开关模式下的循环激活状态
+global toggleLock := false        ; 开关模式互斥锁，防止多线程竞争
 
 ; ============================== 初始化函数 ==============================
 InitCore() {
